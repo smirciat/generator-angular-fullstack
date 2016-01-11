@@ -175,10 +175,9 @@
     "phantomjs": "^1.9.18",
     "proxyquire": "^1.0.1",
     "supertest": "^1.1.0"<% if(filters.webpack) { %>,
-    "webpack": "^1.12.2",
-    "angular-mocks": "^1.4.7",<% if(filters.babel) { %>
+    "webpack": "^1.12.2",<% if(filters.babel) { %>
     "babel-loader": "^5.3.2",<% } %><% if(filters.ts) { %>
-    "ts-loader": "",<% } %>
+    "ts-loader": "~0.7.2",<% } %>
     "css-loader": "^0.21.0",
     "extract-text-webpack-plugin": "^0.8.2",
     "file-loader": "^0.8.4",
@@ -196,7 +195,8 @@
     "style-loader": "^0.13.0",<% if(filters.jade) { %>
     "jade-loader": "~0.8.0",<% } %><% if(filters.html) { %>
     "raw-loader": "^0.5.1",<% } %>
-    "webpack-dev-server": "~1.14.0"<% } %>
+    "webpack-dev-server": "~1.14.0",
+    "webpack-stream": "^3.1.0"<% } %>
   },
   "engines": {
     "node": "^4.2.3",

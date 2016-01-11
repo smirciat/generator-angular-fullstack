@@ -7,8 +7,8 @@ This project was generated with the [Angular Full-Stack Generator](https://githu
 ### Prerequisites
 
 - [Git](https://git-scm.com/)
-- [Node.js and npm](nodejs.org) Node ^4.2.3, npm ^2.14.7
-- [Bower](bower.io) (`npm install --global bower`)<% if(filters.sass) { %>
+- [Node.js and npm](nodejs.org) Node ^4.2.3, npm ^2.14.7<% if(filters.bower) { %>
+- [Bower](bower.io) (`npm install --global bower`)<% } %><% if(filters.sass) { %>
 - [Ruby](https://www.ruby-lang.org) and then `gem install sass`<% } if(filters.grunt) { %>
 - [Grunt](http://gruntjs.com/) (`npm install --global grunt-cli`)<% } if(filters.gulp) { %>
 - [Gulp](http://gulpjs.com/) (`npm install --global gulp`)<% } if(filters.mongoose) { %>
@@ -17,9 +17,9 @@ This project was generated with the [Angular Full-Stack Generator](https://githu
 
 ### Developing<% var i = 1; %>
 
-<%= i++ %>. Run `npm install` to install server dependencies.
+<%= i++ %>. Run `npm install` to install dependencies.<% if(filters.bower) { %>
 
-<%= i++ %>. Run `bower install` to install front-end dependencies.<% if(filters.mongoose) { %>
+<%= i++ %>. Run `bower install` to install front-end dependencies.<% } %><% if(filters.mongoose) { %>
 
 <%= i++ %>. Run `mongod` in a separate shell to keep an instance of the MongoDB Daemon running<% } %>
 

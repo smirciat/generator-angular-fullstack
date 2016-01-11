@@ -17,7 +17,7 @@ module.exports = function(config) {
     },<% } %>
 
     // list of files / patterns to load in the browser
-    files: [
+    files: [<% if(!filters.webpack) { %>
       // bower:js
       // endbower<% if (filters.socketio) { %>
       'node_modules/socket.io-client/socket.io.js',<% } %><% if(filters.ts) { %>
@@ -28,14 +28,16 @@ module.exports = function(config) {
       'client/app/app.js',
       'client/{app,components}/**/*.module.js',
       'client/{app,components}/**/*.js',<% } %>
-      'client/{app,components}/**/*.<%= filters.jade ? '{jade,html}' : 'html' %>'
+      'client/{app,components}/**/*.<%= filters.jade ? '{jade,html}' : 'html' %>'<% } %><% if(filters.webpack) { %>
+      'webpack.specs.js'<% } %>
     ],
 
-    preprocessors: {
+    preprocessors: {<% if(!filters.webpack) { %>
       '**/*.html': 'ng-html2js',<% if (filters.jade) { %>
       '**/*.jade': 'ng-jade2js',<% } if (filters.babel) { %>
-      'client/{app,components}/**/*.js': 'babel'<% } %>
-    },
+      'client/{app,components}/**/*.js': 'babel'<% } %><% } %><% if(filters.webpack) { %>
+      'webpack.specs.js': ['webpack', 'sourcemap']<% } %>
+    },<% if(!filters.webpack) { %>
 
     ngHtml2JsPreprocessor: {
       stripPrefix: 'client/'
@@ -58,7 +60,84 @@ module.exports = function(config) {
       sourceFileName: function (file) {
         return file.originalPath;
       }
-    },<% } %>
+    },<% } %><% } %><% if(filters.webpack) { %>
+
+    //TODO: move all to webpack.make.js
+    webpack: {
+      // karma watches the test entry points
+      // (you don't need to specify the entry option)
+      // webpack watches dependencies
+
+      // webpack configuration
+      resolve: {
+        modulesDirectories: [
+          'node_modules'
+        ],
+        extensions: ['', '.js', '.ts']
+      },
+      devtool: 'inline-source-map',
+      module: {
+        loaders: [
+          {test: /\.html$/, loader: 'raw'},
+          {test: /\.js$/, loader: 'babel', exclude: /(node_modules)/, include, query: {
+            optional: [
+              'runtime',
+              'es7.classProperties'
+            ]
+          }},
+          {test: /\.js$/, loader: 'ng-annotate?single_quotes'},
+          {test: /\.<%= styleExt %>$/, loaders: ['style', 'css', '<%= filters.sass ? 'sass' : filters.less ? 'less' ?  %>']},
+          {
+            // ASSET LOADER
+            // Reference: https://github.com/webpack/file-loader
+            // Copy png, jpg, jpeg, gif, svg, woff, woff2, ttf, eot files to output
+            // Rename the file using the asset hash
+            // Pass along the updated reference to your code
+            // You can add here any file extension you want to get copied to your output
+            test: /\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$/,
+            loader: 'file'
+          }
+        ],
+        postLoaders: [{
+          //delays coverage til after tests are run, fixing transpiled source coverage error
+          test: /\.js$/,
+          exclude: /(node_modules)/,
+          loader: 'istanbul-instrumenter'
+        }]
+      },
+
+      // Sass loader configuration to tell webpack where to find the additional SASS files
+      // https://github.com/jtangelder/sass-loader#sass-options
+      sassLoader: {
+        includePaths: _.union(
+          [path.resolve(__dirname, 'node_modules', 'client')],
+          require('bourbon').includePaths
+        )
+      },
+      stats: {colors: true, reasons: true},
+      debug: false
+    },
+
+    webpackMiddleware: {
+      // webpack-dev-middleware configuration
+      // i. e.
+      noInfo: true
+    },
+
+    plugins: [
+      require('karma-chai-plugins'),
+      require('karma-chrome-launcher'),
+      require('karma-coverage'),
+      require('karma-firefox-launcher'),
+      require('karma-html2js-preprocessor'),<% if (filters.jasmine) { %>
+      require('karma-jasmine'),<% } %><% if (filters.mocha) { %>
+      require('karma-mocha'),<% } %>
+      require('karma-phantomjs-launcher'),
+      require('karma-script-launcher'),
+      require('karma-sourcemap-loader'),
+      require('karma-spec-reporter'),
+      require('karma-webpack'),
+    ],<% } %>
 
     // list of files / patterns to exclude
     exclude: [],

@@ -15,7 +15,9 @@ import {Server as KarmaServer} from 'karma';
 import runSequence from 'run-sequence';
 import {protractor, webdriver_update} from 'gulp-protractor';
 import {Instrumenter} from 'isparta';<% if(filters.stylus) { %>
-import nib from 'nib';<% } %>
+import nib from 'nib';<% } %><% if(filters.webpack) { %>
+import webpack from 'webpack-stream';
+import makeWebpackConfig from './webpack.make';<% } %>
 
 var plugins = gulpLoadPlugins();
 var config;
@@ -85,7 +87,7 @@ function whenServerReady(cb) {
             cb();
         }),
         100);
-}
+}<% if(!filters.webpack) { %>
 
 function sortModulesFirst(a, b) {
     var module = /\.module\.<%= scriptExt %>$/;
@@ -104,7 +106,7 @@ function sortModulesFirst(a, b) {
     } else {
         return (aMod ? -1 : 1);
     }
-}
+}<% } %>
 
 /********************
  * Reusable pipelines
@@ -122,7 +124,7 @@ let lintServerScripts = lazypipe()
 
 let lintServerTestScripts = lazypipe()
     .pipe(plugins.jshint, `${serverPath}/.jshintrc-spec`)
-    .pipe(plugins.jshint.reporter, 'jshint-stylish');
+    .pipe(plugins.jshint.reporter, 'jshint-stylish');<% if(!filters.webpack) { %>
 
 let styles = lazypipe()
     .pipe(plugins.sourcemaps.init)<% if(filters.stylus) { %>
@@ -140,7 +142,7 @@ let transpileClient = lazypipe()
     .pipe(plugins.babel, {
         optional: ['es7.classProperties']
     })
-    .pipe(plugins.sourcemaps.write, '.');<% } %>
+    .pipe(plugins.sourcemaps.write, '.');<% } %><% } %>
 
 let transpileServer = lazypipe()
     .pipe(plugins.sourcemaps.init)
@@ -201,7 +203,7 @@ gulp.task('env:prod', () => {
 
 /********************
  * Tasks
- ********************/
+ ********************/<% if(!filters.webpack) { %>
 
 gulp.task('inject', cb => {
     runSequence(['inject:js', 'inject:css', 'inject:<%= styleExt %>'], cb);
@@ -231,7 +233,7 @@ gulp.task('inject:css', () => {
                 transform: (filepath) => '<link rel="stylesheet" href="' + filepath.replace(`/${clientPath}/`, '').replace('/.tmp/', '') + '">'
             }))
         .pipe(gulp.dest(clientPath));
-});<% if(!filters.css) { %>
+});<% } %><% if(!filters.css) { %>
 
 gulp.task('inject:<%= styleExt %>', () => {
     return gulp.src(paths.client.mainStyle)
@@ -266,7 +268,23 @@ gulp.task('tsd:test', cb => {
         command: 'reinstall',
         config: './tsd_test.json'
     }, cb);
-});<% } %>
+});<% } %><% if(filters.webpack) { %>
+
+gulp.task('webpack:dev', function() {
+    let webpackDevConfig = makeWebpackConfig({ DEV: true });
+    return gulp.src(webpackDevConfig.entry.app)
+        .pipe(plugins.plumber())
+        .pipe(webpack(webpackDevConfig))
+        .pipe(gulp.dest(paths.temp))
+        .pipe(plugins.livereload());
+});
+
+gulp.task('webpack:dist', function() {
+    let webpackDistConfig = makeWebpackConfig({ BUILD: true });
+    return gulp.src(webpackDistConfig.entry.app)
+        .pipe(webpack(webpackDistConfig))
+        .pipe(gulp.dest(paths.dist + '/client'));
+});<% } %><% if(!filters.webpack) { %>
 
 gulp.task('styles', () => {
     return gulp.src(paths.client.mainStyle)
@@ -301,7 +319,7 @@ gulp.task('transpile:client', () => {
     return gulp.src(paths.client.scripts)
         .pipe(transpileClient())
         .pipe(gulp.dest('.tmp'));
-});<% } %>
+});<% } %><% } %>
 
 gulp.task('transpile:server', () => {
     return gulp.src(_.union(paths.server.scripts, paths.server.json))
@@ -361,9 +379,9 @@ gulp.task('start:server', () => {
 });
 
 gulp.task('watch', () => {
-    var testFiles = _.union(paths.client.test, paths.server.test.unit, paths.server.test.integration);
+    plugins.livereload.listen();<% if(!filters.webpack) { %>
 
-    plugins.livereload.listen();
+    var testFiles = _.union(paths.client.test, paths.server.test.unit, paths.server.test.integration);
 
     plugins.watch(paths.client.styles, () => {  //['inject:<%= styleExt %>']
         gulp.src(paths.client.mainStyle)
@@ -383,19 +401,27 @@ gulp.task('watch', () => {
         .pipe(gulp.dest('.tmp'))
         .pipe(plugins.livereload());
 
+    gulp.watch('bower.json', ['wiredep:client']);<% } %><% if(filters.webpack) { %>
+
+    gulp.watch(`${clientPath}/**/!(*.spec|*.mock).{<%= templateExt %>,<%= scriptExt %>,<%= styleExt %>}`, ['webpack:dev']);<% } %>
+
     plugins.watch(_.union(paths.server.scripts, testFiles))
         .pipe(plugins.plumber())
         .pipe(lintServerScripts())
         .pipe(plugins.livereload());
-
-    gulp.watch('bower.json', ['wiredep:client']);
 });
 
 gulp.task('serve', cb => {
-    runSequence(['clean:tmp', 'constant'<% if(filters.ts) { %>, 'tsd'<% } %>],
+    runSequence([
+            'clean:tmp',
+            'constant'<% if(filters.ts) { %>,
+            'tsd'<% } %>
+            ],<% if(!filters.webpack) { %>
         ['lint:scripts', 'inject'<% if(filters.jade) { %>, 'jade'<% } %>],
         ['wiredep:client'],
-        ['transpile:client', 'styles'],
+        ['transpile:client', 'styles'],<% } %><% if(filters.webpack) { %>
+        ['lint:scripts', 'inject:<%= styleExt %>'],
+        'webpack:dev',<% } %>
         ['start:server', 'start:client'],
         'watch',
         cb);
@@ -434,12 +460,12 @@ gulp.task('mocha:integration', () => {
         .pipe(mocha());
 });
 
-gulp.task('test:client', ['wiredep:test', 'constant'<% if(filters.ts) { %>, 'tsd:test', 'transpile:client', 'transpile:client:test'<% } %>], (done) => {
+gulp.task('test:client'<% if(!filters.webpack) { %>, ['wiredep:test', 'constant'<% if(filters.ts) { %>, 'tsd:test', 'transpile:client', 'transpile:client:test'<% } %>]<% } %>, (done) => {
     new KarmaServer({
       configFile: `${__dirname}/${paths.karma}`,
       singleRun: true
     }, done).start();
-});
+});<% if(!filters.webpack) { %>
 
 // inject bower components
 gulp.task('wiredep:client', () => {
@@ -472,7 +498,7 @@ gulp.task('wiredep:test', () => {
             devDependencies: true
         }))
         .pipe(gulp.dest('./'));
-});
+});<% } %>
 
 /********************
  * Build
@@ -483,21 +509,24 @@ gulp.task('build', cb => {
     runSequence(
         'clean:dist',
         'clean:tmp',
-        'inject',
-        'wiredep:client',<% if(filters.ts) { %>
+        'inject',<% if(!filters.webpack) { %>
+        'wiredep:client',<% } %><% if(filters.ts) { %>
         'tsd',<% } %>
         [
             'build:images',
             'copy:extras',
             'copy:assets',
-            'copy:server',
+            'copy:server',<% if(!filters.webpack) { %>
             'transpile:server',
-            'build:client'
-        ],
+            'build:client'<% } %><% if(filters.webpack) { %>
+            'copy:fonts:dist',
+            'webpack:dist'<% } %>
+        ],<% if(filters.webpack) { %>
+        'revReplaceWebpack',<% } %>
         cb);
 });
 
-gulp.task('clean:dist', () => del([`${paths.dist}/!(.git*|.openshift|Procfile)**`], {dot: true}));
+gulp.task('clean:dist', () => del([`${paths.dist}/!(.git*|.openshift|Procfile)**`], {dot: true}));<% if(filters.webpack) { %>
 
 gulp.task('build:client', ['transpile:client', 'styles', 'html', 'constant'], () => {
     var manifest = gulp.src(`${paths.dist}/${clientPath}/assets/rev-manifest.json`);
@@ -544,7 +573,7 @@ gulp.task('jade', function() {
   gulp.src(paths.client.views)
     .pipe(plugins.jade())
     .pipe(gulp.dest('.tmp'));
-});<% } %>
+});<% } %><% } %>
 
 gulp.task('constant', function() {
   let sharedConfig = require(`./${serverPath}/config/environment/shared`);
@@ -575,7 +604,37 @@ gulp.task('build:images', () => {
             merge: true
         }))
         .pipe(gulp.dest(`${paths.dist}/${clientPath}/assets`));
+});<% if(filters.webpack) { %>
+
+gulp.task('revReplaceWebpack', () => {
+    return gulp.src('dist/client/app.*.js')
+        .pipe(plugins.revReplace({manifest: gulp.src(paths.client.assets.revManifest)}))
+        .pipe(gulp.dest('dist/client'));
 });
+
+gulp.task('copy:fonts:bootstrap:dev', () => {
+    gulp.src('node_modules/bootstrap/fonts/*')
+        .pipe(gulp.dest('client/assets/fonts/bootstrap'));
+});
+gulp.task('copy:fonts:fontAwesome:dev', () => {
+    gulp.src('node_modules/font-awesome/fonts/*')
+        .pipe(gulp.dest('client/assets/fonts/font-awesome'));
+});
+gulp.task('copy:fonts:dev', cb => {
+    return runSequence(['copy:fonts:bootstrap:dev', 'copy:fonts:fontAwesome:dev'], cb);
+});
+
+gulp.task('copy:fonts:bootstrap:dist', () => {
+    gulp.src('node_modules/bootstrap/fonts/*')
+        .pipe(gulp.dest(paths.dist + '/client/assets/fonts/bootstrap'));
+});
+gulp.task('copy:fonts:fontAwesome:dist', () => {
+    gulp.src('node_modules/font-awesome/fonts/*')
+        .pipe(gulp.dest(paths.dist + '/client/assets/fonts/font-awesome'));
+});
+gulp.task('copy:fonts:dist', cb => {
+    return runSequence(['copy:fonts:bootstrap:dist', 'copy:fonts:fontAwesome:dist'], cb);
+});<% } %>
 
 gulp.task('copy:extras', () => {
     return gulp.src([
@@ -593,9 +652,9 @@ gulp.task('copy:assets', () => {
 
 gulp.task('copy:server', () => {
     return gulp.src([
-        'package.json',
+        'package.json'<% if(filters.webpack) { %>,
         'bower.json',
-        '.bowerrc'
+        '.bowerrc'<% } %>
     ], {cwdbase: true})
         .pipe(gulp.dest(paths.dist));
 });
