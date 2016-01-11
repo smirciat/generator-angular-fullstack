@@ -103,6 +103,12 @@ export default class Generator extends Base {
             }
           }, {
             type: 'list',
+            name: 'clientPackageManager',
+            message: 'Which package manager should be used?',
+            choices: ['Bower', 'Webpack'/*, 'Browserify'*/],
+            filter: val => val.toLowerCase()
+          }, {
+            type: 'list',
             name: 'markup',
             message: 'What would you like to write markup with?',
             choices: ['HTML', 'Jade'],
@@ -139,6 +145,7 @@ export default class Generator extends Base {
             this.filters[answers.markup] = true;
             this.filters[answers.stylesheet] = true;
             this.filters[answers.router] = true;
+            this.filters[answers.clientPackageManager] = true;
             this.filters.bootstrap = !!answers.bootstrap;
             this.filters.uibootstrap =  !!answers.uibootstrap;
 
