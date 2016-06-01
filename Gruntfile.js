@@ -3,7 +3,7 @@
 var shell = require('shelljs');
 var child_process = require('child_process');
 var Q = require('q');
-var helpers = require('yeoman-generator').test;
+var helpers = require('yeoman-test');
 var fs = require('fs');
 var path = require('path');
 
@@ -87,7 +87,7 @@ module.exports = function (grunt) {
         curly: false,
         node: true
       },
-      all: ['Gruntfile.js', '*/index.js']
+      all: ['Gruntfile.js', 'src/**/*.js']
     },
     env: {
       fast: {
@@ -276,8 +276,8 @@ module.exports = function (grunt) {
       fs.writeFileSync(path.resolve(d), JSON.stringify(json, null, 2));
     };
 
-    processJson('app/templates/_package.json', dest + 'package.json');
-    processJson('app/templates/_bower.json', dest + 'bower.json');
+    processJson('templates/app/_package.json', dest + 'package.json');
+    processJson('templates/app/_bower.json', dest + 'bower.json');
   });
 
   grunt.registerTask('installFixtures', 'install package and bower fixtures', function() {
